@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mis Finanzas</title>
+    <!-- Carga de Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f7f9fc; }
+        .modal-overlay { background-color: rgba(0, 0, 0, 0.6); }
+        .card { box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.06); }
+    </style>
+    <!-- Fuentes de Google para Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="p-4 sm:p-6 pb-20">
+
+    <div id="loading-indicator" class="fixed inset-0 flex items-center justify-center bg-white/70 z-50">
+        <div class="flex flex-col items-center">
+            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+            <p class="mt-3 text-indigo-600 font-semibold">Cargando datos...</p>
+        </div>
+    </div>
+
+    <!-- Encabezado y Navegación de Mes -->
+    <header class="bg-white p-4 rounded-xl shadow-lg mb-6 card">
+        <h1 class="text-2xl font-bold text-gray-800 text-center mb-4">Mis Finanzas</h1>
+        <div class="flex items-center justify-between">
+            <button onclick="changeMonth(-1)" class="p-2 text-indigo-600 hover:text-indigo-800 transition duration-150">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-6 h-6">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12 15.75 4.5" />
+                </svg>
+            </button>
+            <h2 id="current-month-display" class="text-xl font-semibold text-gray-900">Octubre 2025</h2>
+            <button onclick="changeMonth(1)" class="p-2 text-indigo-600 hover:text-indigo-800 transition duration-150">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-6 h-6">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+                </svg>
+            </button>
+        </div>
+    </header>
+
+    <!-- Resumen de Deuda No Fija Total Pendiente -->
+    <div class="bg-white p-5 rounded-xl shadow-lg mb-6 border-l-4 border-red-500 card">
+        <h3 class="text-lg font-medium text-gray-600 mb-2">Deuda No Fija Total Pendiente:</h3>
+        <p id="total-debt-display" class="text-3xl font-bold text-red-600">$0.00</p>
+    </div>
+
+    <!-- Gastos Fijos -->
+    <div class="bg-white p-5 rounded-xl shadow-lg mb-6 card">
+        <h3 class="text-xl font-bold text-gray-800 mb-4 border-b pb-2">Gastos Fijos (<span class="text-green-600" id="fixed-paid-count">0</span>/<span id="fixed-total-count">0</span> Pagados)</h3>
+        <div id="fixed-expenses-list" class="space-y-3">
+            <p class="text-gray-500 text-sm italic" id="fixed-placeholder">No hay gastos fijos registrados para este mes.</p>
+        </div>
+    </div>
+
+    <!-- Gastos No Fijos (Deudas) -->
+    <div class="bg-white p-5 rounded-xl shadow-lg mb-6 card">
+        <h3 class="text-xl font-bold text-gray-800 mb-4 border-b pb-2">Gastos No Fijos (Deudas)</h3>
+        <div id="non-fixed-debts-list" class="space-y-3">
+            <p class="text-gray-500 text-sm italic" id="non-fixed-placeholder">No hay deudas registradas para este mes.</p>
+        </div>
+    </div>
+
+    <!-- Botón Flotante para Añadir Nuevo Gasto -->
+    <button onclick="openAddExpenseModal()" class="fixed bottom-4 right-4 bg-indigo-600 text-white p-4 rounded-full shadow-2xl hover:bg-indigo-700 transition duration-300 z-30">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-6 h-6">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+        </svg>
+    </button>
+
+    <!-- MODAL: Añadir Nuevo Gasto -->
+    <div id="add-expense-modal" class="modal-overlay fixed inset-0 hidden items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 transform transition-all duration-300">
+            <h3 class="text-xl font-bold mb-4 border-b pb-2 text-gray-800">Añadir Nuevo Gasto</h3>
+
+            <div class="space-y-4">
+                <label class="block">
+                    <span class="text-gray-700 font-medium">Nombre del Gasto</span>
+                    <input type="text" id="expense-name" class="mt-1 block w-full rounded-lg border-gray-300 p-2 border focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50" placeholder="Ej: Universidad o Préstamo Auto">
+                </label>
+
+                <label class="block">
+                    <span class="text-gray-700 font-medium">Tipo de Gasto</span>
+                    <select id="expense-type" onchange="updateAddExpenseForm()" class="mt-1 block w-full rounded-lg border-gray-300 p-2 border focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
+                        <option value="fixed">Gasto Fijo (Pago mensual)</option>
+                        <option value="non-fixed">Gasto No Fijo (Deuda con Balance)</option>
+                    </select>
+                </label>
+
+                <div id="fixed-fields">
+                    <label class="block">
+                        <span class="text-gray-700 font-medium">Monto Fijo Mensual ($)</span>
+                        <input type="number" id="fixed-monthly-amount" step="0.01" min="0.01" class="mt-1 block w-full rounded-lg border-gray-300 p-2 border focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50" placeholder="100.00">
+                    </label>
+                </div>
+
+                <div id="non-fixed-fields" class="hidden">
+                    <label class="block">
+                        <span class="text-gray-700 font-medium">Balance Total Inicial de la Deuda ($)</span>
+                        <input type="number" id="non-fixed-total-balance" step="0.01" min="0.01" class="mt-1 block w-full rounded-lg border-gray-300 p-2 border focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50" placeholder="5000.00">
+                    </label>
+                </div>
+            </div>
+
+            <div class="mt-6 flex justify-end space-x-3">
+                <button onclick="closeAddExpenseModal()" class="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-100 transition duration-150">
+                    Cancelar
+                </button>
+                <button onclick="saveNewExpense()" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition duration-150">
+                    Guardar Gasto
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Registrar Pago de Deuda No Fija -->
+    <div id="pay-debt-modal" class="modal-overlay fixed inset-0 hidden items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 transform transition-all duration-300">
+            <h3 class="text-xl font-bold mb-4 border-b pb-2 text-gray-800">Registrar Pago de Deuda</h3>
+            <p class="mb-4 text-sm text-gray-600">Deuda: <span id="debt-name-display" class="font-semibold"></span> | Balance Actual: <span id="debt-balance-display" class="font-semibold"></span></p>
+
+            <label class="block">
+                <span class="text-gray-700 font-medium">Monto a Pagar ($)</span>
+                <input type="number" id="payment-amount" step="0.01" min="0.01" class="mt-1 block w-full rounded-lg border-gray-300 p-2 border focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50" placeholder="Monto">
+            </label>
+            <input type="hidden" id="debt-id-to-pay">
+
+            <div class="mt-6 flex justify-end space-x-3">
+                <button onclick="closePayDebtModal()" class="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-100 transition duration-150">
+                    Cancelar
+                </button>
+                <button onclick="confirmDebtPayment()" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-150">
+                    Confirmar Pago
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Mensajes de Notificación -->
+    <div id="message-modal" class="modal-overlay fixed inset-0 hidden items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-sm p-6 transform transition-all duration-300 text-center">
+            <h3 id="message-title" class="text-xl font-bold mb-3 text-gray-800"></h3>
+            <p id="message-body" class="mb-5 text-gray-600"></p>
+            <button onclick="closeMessageModal()" class="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition duration-150">
+                Entendido
+            </button>
+        </div>
+    </div>
+
+    <!-- Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, query, where, getDocs, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // CONFIGURACIÓN GLOBAL
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        let db;
+        let auth;
+        let userId = null;
+        let isAuthReady = false;
+
+        // ESTADO DE LA APLICACIÓN
+        window.currentDate = new Date(); // Fecha actual, solo para el mes y año
+        window.fixedExpenses = []; // Definiciones de gastos fijos
+        window.nonFixedDebts = []; // Definiciones de deudas no fijas
+        window.monthlyPayments = []; // Estado de pago de gastos fijos para el mes actual
+
+        // --- FUNCIONES DE UTILIDAD ---
+
+        /** Muestra un mensaje al usuario en un modal. */
+        window.showMessage = (title, body) => {
+            document.getElementById('message-title').textContent = title;
+            document.getElementById('message-body').textContent = body;
+            document.getElementById('message-modal').classList.remove('hidden');
+            document.getElementById('message-modal').classList.add('flex');
+        };
+
+        /** Cierra el modal de mensajes. */
+        window.closeMessageModal = () => {
+            document.getElementById('message-modal').classList.add('hidden');
+            document.getElementById('message-modal').classList.remove('flex');
+        };
+
+        /** Formatea un número como moneda. */
+        window.formatCurrency = (amount) => {
+            return new Intl.NumberFormat('es-US', {
+                style: 'currency',
+                currency: 'USD',
+            }).format(amount);
+        };
+
+        /** Obtiene el string de mes y año (ej: "2025-10"). */
+        window.getMonthYearString = (date) => {
+            return `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`;
+        };
+
+        /** Muestra u oculta el indicador de carga. */
+        window.setLoading = (isLoading) => {
+            const loadingIndicator = document.getElementById('loading-indicator');
+            if (isLoading) {
+                loadingIndicator.classList.remove('hidden');
+            } else {
+                loadingIndicator.classList.add('hidden');
+            }
+        }
+
+        // --- FIREBASE INICIALIZACIÓN Y AUTH ---
+
+        /** Inicializa Firebase y autentica al usuario. */
+        async function initializeFirebase() {
+            setLoading(true);
+            try {
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+                setLogLevel('error'); // Usar 'error' en producción, 'debug' si se requiere
+
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                } else {
+                    await signInAnonymously(auth);
+                }
+
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        userId = user.uid;
+                        isAuthReady = true;
+                        console.log("Firebase Auth Ready. User ID:", userId);
+                        // Iniciar los listeners una vez que Auth esté listo
+                        setupFirestoreListeners();
+                    } else {
+                        console.error("No se pudo autenticar al usuario.");
+                        setLoading(false);
+                    }
+                });
+            } catch (error) {
+                console.error("Error al inicializar Firebase o autenticar:", error);
+                showMessage("Error Crítico", "No se pudo conectar a la base de datos.");
+                setLoading(false);
+            }
+        }
+
+        /** Configura los listeners de Firestore. */
+        function setupFirestoreListeners() {
+            if (!isAuthReady || !userId) return;
+
+            const fixedCol = collection(db, `artifacts/${appId}/users/${userId}/fixed_expenses`);
+            const nonFixedCol = collection(db, `artifacts/${appId}/users/${userId}/non_fixed_debts`);
+            const monthlyCol = collection(db, `artifacts/${appId}/users/${userId}/monthly_payments`);
+            
+            // Listener para Gastos Fijos (Definición)
+            onSnapshot(fixedCol, (snapshot) => {
+                window.fixedExpenses = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                renderDashboard();
+            }, (error) => console.error("Error en fixed_expenses listener:", error));
+
+            // Listener para Deudas No Fijas (Balance)
+            onSnapshot(nonFixedCol, (snapshot) => {
+                window.nonFixedDebts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                renderDashboard();
+            }, (error) => console.error("Error en non_fixed_debts listener:", error));
+            
+            // Listener para Pagos Mensuales (Estado de Fixed)
+            // Se filtra por el mes actual en el cliente para simplicidad
+            onSnapshot(monthlyCol, (snapshot) => {
+                 window.monthlyPayments = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                 renderDashboard();
+             }, (error) => console.error("Error en monthly_payments listener:", error));
+             
+            setLoading(false);
+        }
+
+        // --- LÓGICA DE NAVEGACIÓN Y VISTA ---
+
+        /** Cambia el mes actual y actualiza la vista. */
+        window.changeMonth = (delta) => {
+            window.currentDate.setMonth(window.currentDate.getMonth() + delta);
+            renderDashboard();
+        };
+
+        /** Renderiza la vista principal (Header, Resumen, Listas). */
+        window.renderDashboard = () => {
+            const currentMonthStr = getMonthYearString(window.currentDate);
+            const formatter = new Intl.DateTimeFormat('es-ES', { month: 'long', year: 'numeric' });
+            document.getElementById('current-month-display').textContent = formatter.format(window.currentDate);
+
+            renderFixedExpenses(currentMonthStr);
+            renderNonFixedDebts(); // Las deudas no dependen del mes para su renderizado, solo para su saldo
+            renderTotalDebt();
+        };
+
+        /** Renderiza la lista de Gastos Fijos. */
+        function renderFixedExpenses(currentMonthStr) {
+            const list = document.getElementById('fixed-expenses-list');
+            list.innerHTML = '';
+            
+            const monthPayments = window.monthlyPayments.filter(p => p.monthYear === currentMonthStr);
+            
+            let paidCount = 0;
+            let totalCount = 0;
+
+            if (window.fixedExpenses.length === 0) {
+                document.getElementById('fixed-placeholder').style.display = 'block';
+                document.getElementById('fixed-total-count').textContent = '0';
+                document.getElementById('fixed-paid-count').textContent = '0';
+                return;
+            }
+
+            document.getElementById('fixed-placeholder').style.display = 'none';
+
+            window.fixedExpenses.sort((a, b) => a.name.localeCompare(b.name)).forEach(expense => {
+                totalCount++;
+                const payment = monthPayments.find(p => p.expenseId === expense.id);
+                const isPaid = payment && payment.paid;
+
+                if (isPaid) paidCount++;
+                
+                const statusClass = isPaid ? 'bg-green-100 border-green-400' : 'bg-yellow-100 border-yellow-400';
+                const buttonText = isPaid ? 'Pagado' : 'Pagar';
+                const buttonAction = isPaid ? `showMessage('Gasto Pagado', 'Este gasto ya está marcado como pagado para ${currentMonthStr}.')` : `payFixedExpense('${expense.id}', ${expense.monthlyAmount})`;
+                const buttonDisabled = isPaid ? 'disabled' : '';
+
+                const item = document.createElement('div');
+                item.className = `flex justify-between items-center p-3 rounded-lg border-l-4 ${statusClass} transition duration-150`;
+                item.innerHTML = `
+                    <div class="flex-1 min-w-0">
+                        <p class="font-semibold text-gray-800 truncate">${expense.name}</p>
+                        <p class="text-sm text-gray-600">${formatCurrency(expense.monthlyAmount)}</p>
+                    </div>
+                    <div class="flex items-center space-x-2 ml-4">
+                        <button onclick="${buttonAction}" ${buttonDisabled} 
+                            class="px-3 py-1 text-sm rounded-lg font-medium transition duration-150 ${isPaid ? 'bg-gray-300 text-gray-700' : 'bg-green-600 text-white hover:bg-green-700'}">
+                            ${buttonText}
+                        </button>
+                        <button onclick="deleteExpense('${expense.id}', 'fixed')" title="Eliminar Gasto Fijo" 
+                            class="p-1 text-red-500 hover:bg-red-100 rounded-full">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0-.352-9m1.5-3.5h5.25a2.25 2.25 0 0 1 2.25 2.25v2.25a2.25 2.25 0 0 1-2.25 2.25h-5.25a2.25 2.25 0 0 1-2.25-2.25v-2.25a2.25 2.25 0 0 1 2.25-2.25ZM5.75 6h12.5a2.25 2.25 0 0 0 0-4.5h-12.5a2.25 2.25 0 0 0 0 4.5Z" />
+                            </svg>
+                        </button>
+                    </div>
+                `;
+                list.appendChild(item);
+            });
+            
+            document.getElementById('fixed-total-count').textContent = totalCount;
+            document.getElementById('fixed-paid-count').textContent = paidCount;
+        }
+
+        /** Renderiza la lista de Deudas No Fijas. */
+        function renderNonFixedDebts() {
+            const list = document.getElementById('non-fixed-debts-list');
+            list.innerHTML = '';
+            
+            if (window.nonFixedDebts.length === 0) {
+                document.getElementById('non-fixed-placeholder').style.display = 'block';
+                return;
+            }
+
+            document.getElementById('non-fixed-placeholder').style.display = 'none';
+
+            window.nonFixedDebts.sort((a, b) => a.name.localeCompare(b.name)).forEach(debt => {
+                const item = document.createElement('div');
+                item.className = 'flex justify-between items-center p-3 rounded-lg border-l-4 border-red-500 bg-red-50 transition duration-150';
+                item.innerHTML = `
+                    <div class="flex-1 min-w-0">
+                        <p class="font-semibold text-gray-800 truncate">${debt.name}</p>
+                        <p class="text-sm text-red-600 font-bold">Pendiente: ${formatCurrency(debt.totalBalance)}</p>
+                    </div>
+                    <div class="flex items-center space-x-2 ml-4">
+                        <button onclick="openPayDebtModal('${debt.id}', '${debt.name}', ${debt.totalBalance})" 
+                            class="px-3 py-1 text-sm bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition duration-150">
+                            Efectuar Pago
+                        </button>
+                         <button onclick="deleteExpense('${debt.id}', 'non-fixed')" title="Eliminar Deuda" 
+                            class="p-1 text-red-500 hover:bg-red-100 rounded-full">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0-.352-9m1.5-3.5h5.25a2.25 2.25 0 0 1 2.25 2.25v2.25a2.25 2.25 0 0 1-2.25 2.25h-5.25a2.25 2.25 0 0 1-2.25-2.25v-2.25a2.25 2.25 0 0 1 2.25-2.25ZM5.75 6h12.5a2.25 2.25 0 0 0 0-4.5h-12.5a2.25 2.25 0 0 0 0 4.5Z" />
+                            </svg>
+                        </button>
+                    </div>
+                `;
+                list.appendChild(item);
+            });
+        }
+        
+        /** Renderiza el total de deuda no fija pendiente. */
+        function renderTotalDebt() {
+            const totalDebt = window.nonFixedDebts.reduce((sum, debt) => sum + debt.totalBalance, 0);
+            document.getElementById('total-debt-display').textContent = formatCurrency(totalDebt);
+        }
+
+
+        // --- LÓGICA DE GASTOS Y PAGOS (FIREBASE WRITE) ---
+
+        /** Guarda un nuevo gasto (Fijo o No Fijo) en Firestore. */
+        window.saveNewExpense = async () => {
+            if (!isAuthReady) return showMessage("Error", "La aplicación aún se está conectando.");
+            
+            const name = document.getElementById('expense-name').value.trim();
+            const type = document.getElementById('expense-type').value;
+            
+            if (!name) {
+                return showMessage("Campos Requeridos", "El nombre del gasto es obligatorio.");
+            }
+
+            setLoading(true);
+            try {
+                if (type === 'fixed') {
+                    const amountInput = document.getElementById('fixed-monthly-amount');
+                    const monthlyAmount = parseFloat(amountInput.value);
+                    if (isNaN(monthlyAmount) || monthlyAmount <= 0) {
+                        setLoading(false);
+                        return showMessage("Monto Inválido", "El monto fijo debe ser un número positivo.");
+                    }
+                    
+                    const fixedCol = collection(db, `artifacts/${appId}/users/${userId}/fixed_expenses`);
+                    await addDoc(fixedCol, {
+                        name: name,
+                        monthlyAmount: monthlyAmount,
+                        createdAt: new Date()
+                    });
+                    
+                } else if (type === 'non-fixed') {
+                    const balanceInput = document.getElementById('non-fixed-total-balance');
+                    const totalBalance = parseFloat(balanceInput.value);
+                    if (isNaN(totalBalance) || totalBalance <= 0) {
+                        setLoading(false);
+                        return showMessage("Balance Inválido", "El balance total debe ser un número positivo.");
+                    }
+                    
+                    const nonFixedCol = collection(db, `artifacts/${appId}/users/${userId}/non_fixed_debts`);
+                    await addDoc(nonFixedCol, {
+                        name: name,
+                        totalBalance: totalBalance, // Saldo inicial
+                        createdAt: new Date()
+                    });
+                }
+                
+                closeAddExpenseModal();
+                showMessage("Éxito", `El gasto '${name}' ha sido guardado como ${type === 'fixed' ? 'Fijo' : 'No Fijo'}.`);
+            } catch (error) {
+                console.error("Error al guardar el gasto:", error);
+                showMessage("Error de Guardado", "Ocurrió un error al intentar guardar el gasto.");
+            }
+            setLoading(false);
+        };
+
+        /** Marca un Gasto Fijo como pagado para el mes actual. */
+        window.payFixedExpense = async (expenseId, amount) => {
+            if (!isAuthReady) return showMessage("Error", "La aplicación aún se está conectando.");
+            
+            const currentMonthStr = getMonthYearString(window.currentDate);
+            const expense = window.fixedExpenses.find(e => e.id === expenseId);
+            if (!expense) return;
+            
+            // Intentar encontrar si ya existe un registro de pago para este mes (debería ser raro, pero es un chequeo de seguridad)
+            const existingPayment = window.monthlyPayments.find(p => p.expenseId === expenseId && p.monthYear === currentMonthStr);
+            
+            setLoading(true);
+            try {
+                const monthlyCol = collection(db, `artifacts/${appId}/users/${userId}/monthly_payments`);
+                
+                if (existingPayment) {
+                    // Si ya existe, simplemente actualiza (aunque ya esté en true)
+                    const paymentDocRef = doc(monthlyCol, existingPayment.id);
+                    await updateDoc(paymentDocRef, { paid: true });
+                } else {
+                    // Crea un nuevo registro de pago
+                    await addDoc(monthlyCol, {
+                        expenseId: expenseId,
+                        monthYear: currentMonthStr,
+                        amount: amount,
+                        paid: true,
+                        paidAt: new Date()
+                    });
+                }
+                
+                showMessage("Gasto Fijo Pagado", `Se ha marcado '${expense.name}' como pagado para ${currentMonthStr}.`);
+            } catch (error) {
+                console.error("Error al registrar el pago de gasto fijo:", error);
+                showMessage("Error de Pago", "Ocurrió un error al intentar registrar el pago.");
+            }
+            setLoading(false);
+        };
+        
+        /** Confirma y registra el pago a una Deuda No Fija, actualizando su balance. */
+        window.confirmDebtPayment = async () => {
+            if (!isAuthReady) return showMessage("Error", "La aplicación aún se está conectando.");
+            
+            const debtId = document.getElementById('debt-id-to-pay').value;
+            const amountInput = document.getElementById('payment-amount');
+            const paymentAmount = parseFloat(amountInput.value);
+            
+            const debt = window.nonFixedDebts.find(d => d.id === debtId);
+            
+            if (!debt || isNaN(paymentAmount) || paymentAmount <= 0) {
+                return showMessage("Error de Pago", "Monto de pago inválido o deuda no encontrada.");
+            }
+            
+            if (paymentAmount > debt.totalBalance) {
+                return showMessage("Monto Excesivo", `El monto a pagar (${formatCurrency(paymentAmount)}) excede el balance pendiente de ${formatCurrency(debt.totalBalance)}.`);
+            }
+            
+            const newBalance = debt.totalBalance - paymentAmount;
+            
+            setLoading(true);
+            try {
+                const nonFixedCol = collection(db, `artifacts/${appId}/users/${userId}/non_fixed_debts`);
+                const debtDocRef = doc(nonFixedCol, debtId);
+                
+                await updateDoc(debtDocRef, {
+                    totalBalance: newBalance,
+                    lastPayment: new Date(),
+                    lastPaymentAmount: paymentAmount
+                });
+                
+                closePayDebtModal();
+                showMessage("Pago Registrado", `Pago de ${formatCurrency(paymentAmount)} registrado para '${debt.name}'. Nuevo saldo pendiente: ${formatCurrency(newBalance)}.`);
+            } catch (error) {
+                console.error("Error al registrar el pago de deuda:", error);
+                showMessage("Error de Pago", "Ocurrió un error al intentar registrar el pago de la deuda.");
+            }
+            setLoading(false);
+        };
+        
+        /** Elimina un gasto de forma permanente. */
+        window.deleteExpense = async (expenseId, type) => {
+            if (!isAuthReady) return showMessage("Error", "La aplicación aún se está conectando.");
+            
+            const expense = type === 'fixed' 
+                ? window.fixedExpenses.find(e => e.id === expenseId) 
+                : window.nonFixedDebts.find(e => e.id === expenseId);
+                
+            if (!expense) return;
+
+            const confirmDelete = prompt(`¿Estás seguro de que quieres eliminar '${expense.name}' (${type === 'fixed' ? 'Gasto Fijo' : 'Deuda'})? Escribe 'ELIMINAR' para confirmar.`);
+
+            if (confirmDelete !== 'ELIMINAR') {
+                return;
+            }
+
+            setLoading(true);
+            try {
+                let colName = type === 'fixed' ? `artifacts/${appId}/users/${userId}/fixed_expenses` : `artifacts/${appId}/users/${userId}/non_fixed_debts`;
+                
+                // Si es un gasto fijo, también podríamos querer limpiar sus pagos mensuales (opcional, pero buena práctica)
+                if (type === 'fixed') {
+                    // Borrar los registros de pago asociados (no se recomienda borrar toda una colección,
+                    // pero si la aplicación es pequeña, se puede hacer una query de limpieza)
+                    const monthlyCol = collection(db, `artifacts/${appId}/users/${userId}/monthly_payments`);
+                    const q = query(monthlyCol, where("expenseId", "==", expenseId));
+                    const snapshot = await getDocs(q);
+                    snapshot.docs.forEach(async (d) => {
+                        await deleteDoc(doc(monthlyCol, d.id));
+                    });
+                }
+                
+                const docRef = doc(db, colName, expenseId);
+                await deleteDoc(docRef);
+                
+                showMessage("Eliminado", `'${expense.name}' ha sido eliminado permanentemente.`);
+            } catch (error) {
+                console.error("Error al eliminar el gasto:", error);
+                showMessage("Error al Eliminar", "Ocurrió un error al intentar eliminar el gasto.");
+            }
+            setLoading(false);
+        };
+
+
+        // --- LÓGICA DE MODALES ---
+
+        /** Muestra el modal para añadir un gasto. */
+        window.openAddExpenseModal = () => {
+            document.getElementById('expense-name').value = '';
+            document.getElementById('expense-type').value = 'fixed';
+            document.getElementById('fixed-monthly-amount').value = '';
+            document.getElementById('non-fixed-total-balance').value = '';
+            updateAddExpenseForm(); // Asegura que los campos correctos estén visibles
+            document.getElementById('add-expense-modal').classList.remove('hidden');
+            document.getElementById('add-expense-modal').classList.add('flex');
+        };
+
+        /** Oculta el modal para añadir un gasto. */
+        window.closeAddExpenseModal = () => {
+            document.getElementById('add-expense-modal').classList.add('hidden');
+            document.getElementById('add-expense-modal').classList.remove('flex');
+        };
+
+        /** Actualiza los campos visibles en el modal de añadir gasto. */
+        window.updateAddExpenseForm = () => {
+            const type = document.getElementById('expense-type').value;
+            document.getElementById('fixed-fields').classList.toggle('hidden', type !== 'fixed');
+            document.getElementById('non-fixed-fields').classList.toggle('hidden', type !== 'non-fixed');
+        };
+
+        /** Muestra el modal para registrar un pago de deuda. */
+        window.openPayDebtModal = (id, name, balance) => {
+            document.getElementById('debt-id-to-pay').value = id;
+            document.getElementById('debt-name-display').textContent = name;
+            document.getElementById('debt-balance-display').textContent = formatCurrency(balance);
+            document.getElementById('payment-amount').value = '';
+            document.getElementById('pay-debt-modal').classList.remove('hidden');
+            document.getElementById('pay-debt-modal').classList.add('flex');
+        };
+
+        /** Oculta el modal de pago de deuda. */
+        window.closePayDebtModal = () => {
+            document.getElementById('pay-debt-modal').classList.add('hidden');
+            document.getElementById('pay-debt-modal').classList.remove('flex');
+        };
+        
+        // --- INICIO DE LA APP ---
+        window.onload = initializeFirebase;
+    </script>
+
+</body>
+</html>
+
+
